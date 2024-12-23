@@ -32,7 +32,6 @@ app.post('/api/query', (req, res) => {
         if (!query) {
             return res.status(400).json({ error: 'Query is required' });
         }
-
         const result = eventSystem.handleQuery(query);
         res.json(result);
     } catch (error) {
@@ -47,13 +46,61 @@ app.post('/api/events', (req, res) => {
         if (!criteria) {
             return res.status(400).json({ error: 'Criteria is required' });
         }
-
         const events = eventSystem.findByMultipleCriteria(criteria);
         res.json({ events });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// Chatra webhook endpoint
+app.post('/api/chatra', (req, res) => {
+    try {
+        // Extract the user's message from the chatFragment payload
+        const userMessage = req.body.message.body;
+
+        // Query your events database based on the user's message
+        const eventSuggestions = queryEvents(userMessage);
+
+        // Send the suggested events back to Chatra
+        const responseBody = {
+            body: formatEventSuggestions(eventSuggestions)
+        };
+
+        // Send the response back to Chatra
+        res.json(responseBody);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Helper functions for event suggestions
+function queryEvents(userMessage) {
+    // Perform keyword matching or NLP to identify user intent
+    if (userMessage.includes('family friendly')) {
+        return eventSystem.findByMultipleCriteria({ isFamily: true });
+    } else if (userMessage.includes('rooftop')) {
+        return eventSystem.findByMultipleCriteria({ isRooftop: true });
+    } else if (userMessage.includes('ball drop')) {
+        return eventSystem.findByMultipleCriteria({ hasBallDrop: true });
+    } else {
+        // Fallback suggestions or generic event list
+        return eventSystem.getAllEvents().slice(0, 5);
+    }
+}
+
+function formatEventSuggestions(events) {
+    if (events.length === 0) {
+        return "Sorry, no events match your criteria. Please try a different search.";
+    }
+
+    let message = "Here are some suggested events based on your request:\n\n";
+    events.forEach(event => {
+        message += `- ${event.name} (${event.url})\n`;
+    });
+
+    return message;
+}
 
 // Health check
 app.get('/health', (req, res) => {
